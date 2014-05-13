@@ -4,10 +4,10 @@
 
 $meta_boxes = array(
 
-	'properties' 			=> array(
+	'page' 			=> array(
 		'id'			=> 'properties_metabox',
 		'title'			=> __( 'Property Data', 'guildhall' ),
-		'post_type'		=> 'properties',
+		'post_type'		=> 'page',
 		'context'		=> 'side',
 		'priority'		=> 'default',
 		'fields'		=> array(
@@ -109,18 +109,22 @@ function meta_box_save_func($post_id, $post) {
 
 	$fields = $meta_boxes[$post->post_type]['fields'];
 
-	foreach ($fields as $field) {
+	if ( ! is_null( $fields ) ) {
 
-		$key = $field[ 'id' ];
+		foreach ($fields as $field) {
 
-		$new = $_POST[ $key ];
+			$key = $field[ 'id' ];
 
-		$old = get_post_meta( $post_id, $key, true );
+			$new = $_POST[ $key ];
 
-		if ( $new == '' && $old != '' ){
-			delete_post_meta( $post_id, $key, $old );
-		} else {
-			update_post_meta( $post_id, $key, $new );
+			$old = get_post_meta( $post_id, $key, true );
+
+			if ( $new == '' && $old != '' ){
+				delete_post_meta( $post_id, $key, $old );
+			} else {
+				update_post_meta( $post_id, $key, $new );
+			}
+
 		}
 
 	}
