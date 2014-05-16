@@ -277,200 +277,228 @@ $meta_boxes = array(
 
 );
 
-
 Class Simple_Metabox {
 
+	public $_meta_boxes = array();
+
 	public function __construct(){
-		parent::__construct();
+		add_action( 'load-post.php', array( &$this, 'smb_init' ) );
+		add_action( 'load-post-new.php', array( &$this, 'smb_init' ) );
 	}
 
-	public $meta_boxes = array();
+	public function smb_init() {
 
-	public function add_meta_boxes(){
+		add_action( 'add_meta_boxes', array( &$this, 'smb_add_meta' ) );
+		add_action( 'save_post', array( &$this, 'smb_save_meta' ), 10, 2 );
 
 	}
 
-}
+	public function smb_add_meta() {
 
-
-add_action( 'load-post.php', 'meta_box_init' );
-add_action( 'load-post-new.php', 'meta_box_init' );
-
-function meta_box_init() {
-
-	add_action( 'add_meta_boxes', 'meta_box_add_func' );
-	add_action( 'save_post', 'meta_box_save_func', 10, 2 );
-
-}
-
-function meta_box_add_func() {
-
-	global $meta_boxes;
-
-	foreach ($meta_boxes as $post_type => $args) {
-		add_meta_box( 
-			$args['id'], 			// $id
-			$args['title'], 		// $title
-			'meta_box_show_func', 	// $callback
-			$args['post_type'], 	// $screen
-			$args['context'], 		// $context
-			$args['priority'], 		// $priority
-			$callback_args			// $callback_args
-		);
-	}
-
-}
-
-
-function meta_box_show_func( $post, $box ) { 
-
-	global $meta_boxes;
-
-	$fields = $meta_boxes[$box['id']]['fields'];
-
-	wp_nonce_field( basename( __FILE__ ), $box['id'] . '_nonce' );
-
-	$output = '';
-
-	foreach ($fields as $field) {
-		switch ( $field['type'] ) {
-
-			case 'text':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'search':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'email':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'url':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'tel':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'number':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'range':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'date':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'month':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'week':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'time':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'datetime':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'datetime-local':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'color':
-				$output .= create_input( $field['id'], $field['name'], $field['type'] );
-				break;
-
-			case 'textarea':
-				$output .= create_textarea( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'textarea_small':
-				$output .= create_textarea( $field['id'], $field['name'], $field['type'] );
-				break;
-			case 'textarea_code':
-				$output .= create_textarea( $field['id'], $field['name'], $field['type'] );
-				break;
-
-			default:
-				$output .= create_input( $field['id'], $field['name'], 'text' );
-				break;
+		foreach ($this->_meta_boxes as $id => $args) {
+			add_meta_box( 
+				$args['id'], 			// $id
+				$args['title'], 		// $title
+				array( &$this, 'smb_show_meta' ), 	// $callback
+				$args['post_type'], 	// $screen
+				$args['context'], 		// $context
+				$args['priority'], 		// $priority
+				$callback_args			// $callback_args
+			);
 		}
+
 	}
 
-	echo $output;
+	public function smb_show_meta( $post, $box ) { 
 
-}
+		$fields = $this->_meta_boxes[$box['id']]['fields'];
 
-function create_input( $id, $name, $type ){
-	return '<p><label for="' . $id . '">' . $name . '</label><br><input class="widefat" type="' . $type . '" name="' . $id . '" id="' . $id . '" value="' . esc_attr( get_post_meta( $post->ID, $id, true ) ) . '" size="30"></p>';
-}
+		wp_nonce_field( basename( __FILE__ ), $box['id'] . '_nonce' );
 
-function meta_box_save_func($post_id, $post) {
-
-	global $meta_boxes;
-
-	$post_type = $post->post_type;
-
-	foreach ($meta_boxes as $metabox) {
-		
-		if ( $post_type == $metabox['post_type'] ){
-
-			/*
-			 * We need to verify this came from our screen and with proper authorization,
-			 * because the save_post action can be triggered at other times.
-			 */
-
-			// Check if our nonce is set.
-			if ( ! isset( $_POST[$metabox['id'] . '_nonce'] ) ) {
-				return;
-			}
-
-			// Verify that the nonce is valid.
-			if ( ! wp_verify_nonce( $_POST[$metabox['id'] . '_nonce'], basename( __FILE__ ) ) ) {
-				return;
-			}
-
-			// If this is an autosave, our form has not been submitted, so we don't want to do anything.
-			if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-				return;
-			}
-
-			// Check the user's permissions.
-			if ( isset( $_POST['post_type'] ) && 'page' == $_POST['post_type'] ) {
-
-				if ( ! current_user_can( 'edit_page', $post_id ) ) {
-					return;
-				}
-
+		if ( $this->_meta_boxes[$box['id']]['show_on']){
+			$key = $this->_meta_boxes[$box['id']]['show_on']['key'];
+			$value = $this->_meta_boxes[$box['id']]['show_on']['value'];
+			if ( in_array( $post->$key , $value) ) {
+				echo $this->do_output( $post, $fields );
 			} else {
+				echo '<p>You will be able to put data here if this page has a parent of Schools &amp; Courses.</p>';
+			}
+		}else{
+			echo $this->do_output( $post, $fields );
+		}
 
-				if ( ! current_user_can( 'edit_post', $post_id ) ) {
+	}
+
+	private function do_output( $post, $fields = array() ){
+		$output = '';
+		if( ! empty( $fields ) ){
+			foreach ($fields as $field) {
+				switch ( $field['type'] ) {
+
+					case 'text':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'search':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'email':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'url':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'tel':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'number':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'range':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'date':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'month':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'week':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'time':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'datetime':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'datetime-local':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'color':
+						$output .= $this->create_input( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+
+					case 'textarea':
+						$output .= $this->create_textarea( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'textarea_small':
+						$output .= $this->create_textarea( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+					case 'textarea_code':
+						$output .= $this->create_textarea( $post, $field['id'], $field['name'], $field['type'] );
+						break;
+
+					case 'select':
+						$output .= $this->create_select( $post, $field['id'], $field['name'], $field['type'], $field['options'] );
+						break;
+
+					default:
+						$output .= $this->create_input( $field['id'], $field['name'], 'text' );
+						break;
+				}
+			}
+		}
+
+		return $output;
+	}
+
+	private function create_input( $post, $id, $name, $type ){
+		return '<p><label for="' . $id . '"><strong>' . $name . '</strong></label></p>
+		<p><input class="widefat" type="' . $type . '" name="' . $id . '" id="' . $id . '" value="' . esc_attr( get_post_meta( $post->ID, $id, true ) ) . '" size="30"></p>';
+	}
+
+	private function create_textarea( $post, $id, $name, $type ){
+		return '<p><label for="' . $id . '"><strong>' . $name . '</strong></label></p>
+		<p><textarea name="' . $id . '" id="' . $id . '" class="' . $type . '">' . esc_attr( get_post_meta( $post->ID, $id, true ) ) . '</textarea></p>';
+	}
+
+	private function create_select( $post, $id, $name, $type, $options ){
+		$opt = '';
+		$data = esc_attr( get_post_meta( $post->ID, $id, true ) );
+		foreach ($options as $opt_value => $opt_name) {
+			$opt .= '<option data-selected="' . $data . '" value="' . $opt_value . '"';
+			$opt .= ( $opt_value == $data ? ' selected="selected"' : '' );
+			$opt .= '>' . $opt_name . '</option>';
+		}
+		return '<p><label for="' . $id . '"><strong>' . $name . '</strong></label></p>
+		<p><select name="' . $id . '" id="' . $id . '">' . $opt . '</select></p>';
+	}
+
+	public function smb_save_meta($post_id, $post) {
+
+		$post_type = $post->post_type;
+
+		foreach ($this->_meta_boxes as $metabox) {
+			
+			if ( $post_type == $metabox['post_type'] ){
+
+				/*
+				 * We need to verify this came from our screen and with proper authorization,
+				 * because the save_post action can be triggered at other times.
+				 */
+
+				// Check if our nonce is set.
+				if ( ! isset( $_POST[$metabox['id'] . '_nonce'] ) ) {
 					return;
 				}
 
-			}
-
-			foreach ($metabox['fields'] as $field) {
-				
-				$key = $field[ 'id' ];
-
-				$new = $_POST[ $key ];
-
-				$old = get_post_meta( $post_id, $key, true );
-
-				if ( $new == '' && $old != '' ){
-					delete_post_meta( $post_id, $key, $old );
-				} else {
-					update_post_meta( $post_id, $key, $new );
+				// Verify that the nonce is valid.
+				if ( ! wp_verify_nonce( $_POST[$metabox['id'] . '_nonce'], basename( __FILE__ ) ) ) {
+					return;
 				}
 
+				// If this is an autosave, our form has not been submitted, so we don't want to do anything.
+				if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+					return;
+				}
+
+				// Check the user's permissions.
+				if ( isset( $_POST['post_type'] ) && 'page' == $_POST['post_type'] ) {
+
+					if ( ! current_user_can( 'edit_page', $post_id ) ) {
+						return;
+					}
+
+				} else {
+
+					if ( ! current_user_can( 'edit_post', $post_id ) ) {
+						return;
+					}
+
+				}
+
+				foreach ($metabox['fields'] as $field) {
+					
+					$key = $field[ 'id' ];
+
+					$new = $_POST[ $key ];
+
+					$old = get_post_meta( $post_id, $key, true );
+
+					if ( $new == '' && $old != '' ){
+						delete_post_meta( $post_id, $key, $old );
+					} else {
+						update_post_meta( $post_id, $key, $new );
+					}
+
+				}
+
+			}else{
+
+				continue;
+
 			}
-
-		}else{
-
-			continue;
 
 		}
 
 	}
 
+}
+
+$smb = new Simple_Metabox;
+
+if ( $meta_boxes ){
+	$smb->_meta_boxes = $meta_boxes;
 }
 
 function get_meta_data( $key ){
