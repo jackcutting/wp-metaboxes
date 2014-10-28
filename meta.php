@@ -391,6 +391,17 @@ Class Simple_Metabox {
 					case 'select':
 						$output .= $this->create_select( $post, $field['id'], $field['name'], $field['type'], $field['options'] );
 						break;
+					case 'taxonomy_select':
+						$output .= $this->create_select( $post, $field['id'], $field['name'], $field['type'], $field['options'] );
+						break;
+
+					case 'taxonomy_checklist':
+						$output .= $this->create_checklist( $post, $field['id'], $field['name'], $field['type'], $field['options'] );
+						break;
+
+					case 'file':
+						$output .= $this->create_upload( $post, $field['id'], $field['name'], $field['type'] );
+						break;
 
 					default:
 						$output .= $this->create_input( $field['id'], $field['name'], 'text' );
@@ -403,8 +414,18 @@ Class Simple_Metabox {
 	}
 
 	private function create_input( $post, $id, $name, $type ){
+
+		$value = get_post_meta( $post->ID, $id, true );
+
+		if ( $type == 'date' && $value != '' ) {
+			$value = date( 'Y-m-d', $value );
+
+			// wp_enqueue_style( 'picker-js', get_template_directory_uri() . 'font-awesome.min.css' );
+			// wp_enqueue_script( 'html5shiv', '//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7/html5shiv.js', array(), '3.7', false );
+		}
+
 		return '<p><label for="' . $id . '"><strong>' . $name . '</strong></label></p>
-		<p><input class="widefat" type="' . $type . '" name="' . $id . '" id="' . $id . '" value="' . esc_attr( get_post_meta( $post->ID, $id, true ) ) . '" size="30"></p>';
+		<p><input class="widefat" type="' . $type . '" name="' . $id . '" id="' . $id . '" value="' . esc_attr( $value ) . '" size="30"></p>';
 	}
 
 	private function create_textarea( $post, $id, $name, $type ){
@@ -415,13 +436,92 @@ Class Simple_Metabox {
 	private function create_select( $post, $id, $name, $type, $options ){
 		$opt = '';
 		$data = esc_attr( get_post_meta( $post->ID, $id, true ) );
-		foreach ($options as $opt_value => $opt_name) {
-			$opt .= '<option data-selected="' . $data . '" value="' . $opt_value . '"';
-			$opt .= ( $opt_value == $data ? ' selected="selected"' : '' );
-			$opt .= '>' . $opt_name . '</option>';
+
+		if ( $type == 'taxonomy_select' ) {
+			
+			$args = array(
+				'post_type' => $options['post_type'],
+				'posts_per_page' => -1
+			);
+			$taxonomy = get_posts( $args );
+
+			foreach ( $taxonomy as $post ) {
+				$opt .= '<option data-selected="' . $data . '" value="' . $post->ID . '"';
+				$opt .= ( $post->ID == $data ? ' selected="selected"' : '' );
+				$opt .= '>' . $post->post_title . '</option>';
+			}
+
+		} else {
+
+			foreach ($options as $opt_value => $opt_name) {
+				$opt .= '<option data-selected="' . $data . '" value="' . $opt_value . '"';
+				$opt .= ( $opt_value == $data ? ' selected="selected"' : '' );
+				$opt .= '>' . $opt_name . '</option>';
+			}
+
 		}
 		return '<p><label for="' . $id . '"><strong>' . $name . '</strong></label></p>
-		<p><select name="' . $id . '" id="' . $id . '">' . $opt . '</select></p>';
+		<p><select class="widefat" name="' . $id . '" id="' . $id . '">' . $opt . '</select></p>';
+	}
+
+	private function create_checklist( $post, $id, $name, $type, $options ){
+		$opt = '';
+
+		$atts = array_merge( $options, array( 'posts_per_page' => -1, 'orderby' => 'menu_order', 'order' => 'ASC' ) );
+
+		$list = new WP_Query( $atts );
+		$list = $list->posts;
+
+		$data = esc_attr( get_post_meta( $post->ID, $id, true ) );
+
+		if ( strpos( $data, ',' ) ) { $data = explode( ',', $data); }
+
+		$html = '
+		<div class="categorydiv">
+			<ul id="type-tabs" class="category-tabs">
+				<li class="tabs"><a href="#category-all">All Categories</a></li>
+			</ul>
+
+			<div id="category-all" class="tabs-panel">
+				<input type="hidden" name="post_category[]" value="0">
+				<ul id="categorychecklist" data-selected="' . $data . '" data-wp-lists="list:category" class="categorychecklist form-no-clear">
+					';
+		foreach ( $list as $item ) :
+			$html .= '<li id="country-' . $item->ID . '" class=""><label class="selectit"><input value="' . $item->ID . '" type="checkbox" name="' . $id . '[]" id="in-category-' . $item->ID . '" ' . ( ( is_array( $data ) && in_array( $item->ID, $data ) ) || $data == $item->ID ? 'checked="checked"' : '' ) . '> ' . $item->post_title . '</label></li>';
+		endforeach;
+		$html .= '				</ul>
+			</div>
+		</div>';
+
+		return $html;
+	}
+
+	public function create_upload( $post, $id, $name, $type ) {
+
+		$data = esc_attr( get_post_meta( $post->ID, $id, true ) );
+
+		$html = '<p><label for="' . $id . '"><strong>' . $name . '</strong></label></p>
+		<p><input class="widefat" type="' . $type . '" name="' . $id . '" id="' . $id . '" value="' . esc_attr( $data ) . '" size="30">';
+		
+		if ( $data ) {
+
+			$filename = explode( '/', $data );
+			$filename = $filename[ count( $filename ) - 1 ];
+
+			$html .= '<br><small>&nbsp;&nbsp;&nbsp;&nbsp;' . $filename . '</small><br>';
+
+			$html .= '<label for="' . $id . '_delete"><input type="checkbox" name="' . $id . '_delete" id="' . $id . '_delete"> Delete Directions</label>';
+
+		}
+
+		$html .= '</p>';
+
+		return $html;
+
+	}
+
+	public function smb_add_enctype( ) {
+		echo ' enctype="multipart/form-data"';
 	}
 
 	public function smb_save_meta($post_id, $post) {
@@ -468,10 +568,59 @@ Class Simple_Metabox {
 				}
 
 				foreach ($metabox['fields'] as $field) {
-					
+
 					$key = $field[ 'id' ];
 
-					$new = $_POST[ $key ];
+					if ( $field['type'] == 'date' ) {
+						$new = strtotime( $_POST[ $key ] );
+					} elseif ( $field['type'] == 'file' ) {
+
+						if( ! empty( $_FILES ) && isset( $_FILES[ $key ] ) ) {
+
+							if ( ! empty( $_FILES[ $key ]['error'] ) && $_FILES[ $key ]['error'] === 4 ) {
+
+								if ( isset( $_POST[ $key . '_delete' ] ) ) {
+
+									$new = '';
+
+								} else {
+
+									$new = get_post_meta( $post_id, $key, true );
+									
+								}
+
+							} else {
+
+								$goal_image_file = wp_upload_bits( $_FILES[ $key ]['name'], null, wp_remote_get( $_FILES[ $key ]['tmp_name'] ) );
+
+								if( false == $goal_image_file['error'] ) {
+
+									$new = $goal_image_file['url'];
+
+								}
+
+							}
+
+						} else {
+
+
+							if ( isset( $_POST[ $key . '_delete' ] ) ) {
+
+								$new = '';
+
+							} else {
+
+								$new = get_post_meta( $post_id, $key, true );
+								
+							}
+
+						}
+
+					} else {
+						$new = $_POST[ $key ];
+					}
+					
+					if ( is_array( $new ) ){ $new = implode( ',', $new ); }
 
 					$old = get_post_meta( $post_id, $key, true );
 
