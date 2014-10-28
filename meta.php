@@ -290,6 +290,7 @@ Class Simple_Metabox {
 
 		add_action( 'add_meta_boxes', array( &$this, 'smb_add_meta' ) );
 		add_action( 'save_post', array( &$this, 'smb_save_meta' ), 10, 2 );
+		add_action( 'post_edit_form_tag' , array( &$this, 'smb_add_enctype' ) );
 
 	}
 
@@ -510,7 +511,7 @@ Class Simple_Metabox {
 
 			$html .= '<br><small>&nbsp;&nbsp;&nbsp;&nbsp;' . $filename . '</small><br>';
 
-			$html .= '<label for="' . $id . '_delete"><input type="checkbox" name="' . $id . '_delete" id="' . $id . '_delete"> Delete Directions</label>';
+			$html .= '<label for="' . $id . '_delete"><input type="checkbox" name="' . $id . '_delete" id="' . $id . '_delete"> Delete File</label>';
 
 		}
 
